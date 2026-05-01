@@ -15,7 +15,6 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from flask import Flask, flash, g, jsonify, redirect, render_template, request, session, url_for
-from flask_cors import CORS
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -27,10 +26,6 @@ app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB upload cap
 # Keep multipart form fields in memory only up to this limit;
 # larger file uploads will be streamed to a temp file by Werkzeug.
 app.config["MAX_FORM_MEMORY_SIZE"] = 1 * 1024 * 1024  # 1 MB
-
-# Enables browser cross-origin requests (CORS). Use with caution:
-# allowing "*" means any website can call these endpoints from a browser context.
-CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Demo credentials for this implementation.
 USERS = {
@@ -804,7 +799,15 @@ def upload_csv():
     # We only dynamically *detect* useful columns.
     #
     # Important: do NOT load the full CSV into memory.
-    stream = io.TextIOWrapper(file.stream, encoding="utf-8-sig", newline="")
+    raw_stream = file.stream
+    # Some deployment setups hand us a stream-like object that doesn't fully
+    # implement the io.IOBase interface (e.g., missing `.readable()`), which
+    # breaks `io.TextIOWrapper`. Normalize it to a compatible binary stream.
+    if not hasattr(raw_stream, "readable"):
+        raw_stream = getattr(raw_stream, "_file", raw_stream)
+    if not hasattr(raw_stream, "readable"):
+        raw_stream = io.BytesIO(file.read())
+    stream = io.TextIOWrapper(raw_stream, encoding="utf-8-sig", newline="")
     csv_reader = csv.reader(stream)
 
     try:

@@ -15,6 +15,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from flask import Flask, flash, g, jsonify, redirect, render_template, request, session, url_for
+from flask_cors import CORS
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -26,6 +27,10 @@ app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB upload cap
 # Keep multipart form fields in memory only up to this limit;
 # larger file uploads will be streamed to a temp file by Werkzeug.
 app.config["MAX_FORM_MEMORY_SIZE"] = 1 * 1024 * 1024  # 1 MB
+
+# Enables browser cross-origin requests (CORS). Use with caution:
+# allowing "*" means any website can call these endpoints from a browser context.
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Demo credentials for this implementation.
 USERS = {

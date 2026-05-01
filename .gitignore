@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local databases / data
+*.db
+*.sqlite
+*.sqlite3
+
+# Flask / Python tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE/editor
+.vscode/
+
+# OS files
+Thumbs.db
+Desktop.ini

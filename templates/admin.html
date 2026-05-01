@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin - Lead Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <main class="container">
+      <div class="topbar">
+        <h1>Admin Dashboard</h1>
+        <form method="post" action="{{ url_for('logout') }}">
+          <button type="submit" class="ghost">Logout</button>
+        </form>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert {{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <div class="card">
+        <h2>Upload Lead Data</h2>
+        <p class="muted">
+          Upload any CSV (any headers/columns). Mobile column is auto-detected if present; if no mobile is detected, rows are stored with <code>mobile_missing=true</code>.
+          Lead type defaults to <code>Primary</code> unless a lead-type column exists (e.g. <code>lead_type</code>).
+        </p>
+        <form method="post" action="{{ url_for('upload_csv') }}" enctype="multipart/form-data" class="stack">
+          <input type="file" name="csv_file" accept=".csv" required />
+          <button type="submit">Upload CSV</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Sync Leads from Internal Portal</h2>
+        <form method="post" action="{{ url_for('start_sync_leads') }}" class="stack">
+          <label for="selected_date">Select Date to Fetch Leads</label>
+          <input id="selected_date" name="selected_date" type="date" required />
+          <button type="submit">Sync Leads</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="topbar">
+          <h2>Sync Job Status</h2>
+          <button type="button" id="refresh-jobs" class="ghost">Refresh</button>
+        </div>
+        <div class="jobs-wrap">
+          <table class="jobs-table" id="jobs-table">
+            <thead>
+              <tr>
+                <th>Job ID</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Fetched</th>
+                <th>Inserted</th>
+                <th>Updated</th>
+                <th>Failed</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for job in jobs %}
+                <tr>
+                  <td>{{ job.id }}</td>
+                  <td>{{ job.selected_date }}</td>
+                  <td>{{ job.status }}</td>
+                  <td>{{ job.total_fetched }}</td>
+                  <td>{{ job.inserted_count }}</td>
+                  <td>{{ job.updated_count }}</td>
+                  <td>{{ job.failed_count }}</td>
+                  <td>{{ job.error_message or '' }}</td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="8">No jobs yet.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+    <script>
+      async function refreshJobs() {
+        const tableBody = document.querySelector("#jobs-table tbody");
+        if (!tableBody) return;
+        try {
+          const resp = await fetch("{{ url_for('sync_jobs_api') }}", { credentials: "same-origin" });
+          if (!resp.ok) return;
+          const jobs = await resp.json();
+          if (!Array.isArray(jobs) || jobs.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="8">No jobs yet.</td></tr>';
+            return;
+          }
+          tableBody.innerHTML = jobs
+            .map(
+              (job) => `
+              <tr>
+                <td>${job.id}</td>
+                <td>${job.selected_date || ""}</td>
+                <td>${job.status || ""}</td>
+                <td>${job.total_fetched ?? 0}</td>
+                <td>${job.inserted_count ?? 0}</td>
+                <td>${job.updated_count ?? 0}</td>
+                <td>${job.failed_count ?? 0}</td>
+                <td>${job.error_message || ""}</td>
+              </tr>
+            `
+            )
+            .join("");
+        } catch (_err) {}
+      }
+      document.getElementById("refresh-jobs")?.addEventListener("click", refreshJobs);
+      setInterval(refreshJobs, 10000);
+    </script>
+  </body>
+  </html>

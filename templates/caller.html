@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Caller - Lead Search</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <main class="container">
+      <div class="topbar">
+        <h1>Caller Search</h1>
+        <form method="post" action="{{ url_for('logout') }}">
+          <button type="submit" class="ghost">Logout</button>
+        </form>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert {{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <div class="card">
+        <h2>Search by Mobile Number</h2>
+        <form method="post" action="{{ url_for('caller_search') }}" class="stack">
+          <input type="text" name="mobile_number" placeholder="Enter mobile number" required />
+          <button type="submit">Search</button>
+        </form>
+      </div>
+
+      {% if result %}
+        <div class="card">
+          {% if result.found %}
+            <p class="lead-type">Lead Type: <span>{{ result.lead_type }}</span></p>
+            <h3>Details</h3>
+            {% if result.fields %}
+              <div class="kv">
+                {% for k, v in result.fields.items() %}
+                  <div class="kv-row">
+                    <span class="kv-key">{{ k }}</span>
+                    <span class="kv-value">{{ v }}</span>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          {% else %}
+            <p class="not-found">No record found</p>
+          {% endif %}
+        </div>
+      {% endif %}
+    </main>
+  </body>
+  </html>

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lead Dashboard Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <main class="container">
+      <div class="card">
+        <h1>Lead Dashboard</h1>
+        <p class="muted">Login as Admin or Caller.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert {{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="post" class="stack">
+          <label>Username</label>
+          <input type="text" name="username" required />
+
+          <label>Password</label>
+          <input type="password" name="password" required />
+
+          <button type="submit">Login</button>
+        </form>
+      </div>
+    </main>
+  </body>
+  </html>

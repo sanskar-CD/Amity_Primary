@@ -1,0 +1,133 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f7f8fc;
+  color: #1a1a1a;
+}
+
+.container {
+  max-width: 760px;
+  margin: 32px auto;
+  padding: 0 16px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+  margin-bottom: 16px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+input,
+button {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #d3d5df;
+  font-size: 14px;
+}
+
+button {
+  background: #3b5bdb;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+button.ghost {
+  background: #222;
+}
+
+.muted {
+  color: #666;
+}
+
+.alert {
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin: 10px 0;
+}
+
+.alert.error {
+  background: #ffe3e3;
+  color: #a90000;
+}
+
+.alert.success {
+  background: #d3f9d8;
+  color: #2b8a3e;
+}
+
+.lead-type span {
+  color: #2f9e44;
+  font-weight: 700;
+}
+
+.not-found {
+  font-size: 18px;
+  font-weight: 700;
+  color: #c92a2a;
+}
+
+.kv {
+  margin-top: 12px;
+  border-top: 1px solid #eef0f6;
+  padding-top: 10px;
+}
+
+.kv-row {
+  display: flex;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f3f4f8;
+}
+
+.kv-key {
+  width: 180px;
+  font-weight: 700;
+  color: #2d2d2d;
+  word-break: break-word;
+}
+
+.kv-value {
+  flex: 1;
+  word-break: break-word;
+}
+
+.jobs-wrap {
+  overflow-x: auto;
+}
+
+.jobs-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.jobs-table th,
+.jobs-table td {
+  border: 1px solid #e6e8f0;
+  padding: 8px;
+  font-size: 13px;
+  text-align: left;
+}
+
+.jobs-table th {
+  background: #f2f4f9;
+}

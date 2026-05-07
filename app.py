@@ -1237,10 +1237,15 @@ def _write_debug_artifacts(page, label: str) -> str:
     except Exception:
         pass
     try:
+        html = page.content()
         with open(os.path.join(out_dir, "page.html"), "w", encoding="utf-8") as f:
-            f.write(page.content())
-    except Exception:
-        pass
+            f.write(html if isinstance(html, str) else str(html))
+    except Exception as exc:
+        try:
+            with open(os.path.join(out_dir, "page.html"), "w", encoding="utf-8") as f:
+                f.write(f"<!-- page.content() failed: {exc!r} -->\n")
+        except Exception:
+            pass
     try:
         with open(os.path.join(out_dir, "meta.txt"), "w", encoding="utf-8") as f:
             f.write(f"url={page.url}\n")
@@ -1251,6 +1256,37 @@ def _write_debug_artifacts(page, label: str) -> str:
     except Exception:
         pass
     return out_dir
+
+
+_DEFAULT_CHROME_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/131.0.0.0 Safari/537.36"
+)
+
+
+def _playwright_persistent_kwargs(user_data_dir: str, headless: bool) -> dict:
+    """
+    Shared Chromium launch options for portal scraping.
+
+    - Realistic User-Agent: many WAFs throttle the default HeadlessChrome UA.
+    - Viewport: Amity LMS layouts assume a desktop width.
+    - --no-sandbox: required on some Linux/Docker hosts when not using user namespaces.
+    """
+    ua = (_env("PLAYWRIGHT_USER_AGENT", "") or "").strip() or _DEFAULT_CHROME_UA
+    vw = int(_env("PLAYWRIGHT_VIEWPORT_WIDTH", "1366"))
+    vh = int(_env("PLAYWRIGHT_VIEWPORT_HEIGHT", "900"))
+    return {
+        "user_data_dir": user_data_dir,
+        "headless": headless,
+        "timezone_id": _env("PLAYWRIGHT_TIMEZONE_ID", "Asia/Kolkata"),
+        "user_agent": ua,
+        "viewport": {"width": vw, "height": vh},
+        "args": [
+            "--disable-blink-features=AutomationControlled",
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+        ],
+    }
 
 
 def _portal_build_config() -> dict[str, object]:
@@ -1664,7 +1700,8 @@ def _set_date_field(locator, portal_date: str, page) -> None:
 
 
 def _block_heavy_portal_resources_enabled() -> bool:
-    return _env("SCRAPER_BLOCK_HEAVY_RESOURCES", "true").lower() in {"1", "true", "yes"}
+    # Default off: blocking images/fonts can break AJAX-heavy LMS grids on slow / remote links.
+    return _env("SCRAPER_BLOCK_HEAVY_RESOURCES", "false").lower() in {"1", "true", "yes", "on"}
 
 
 def _install_portal_route_blocking(context) -> None:
@@ -2185,10 +2222,7 @@ def scrape_portal_records_range_playwright(
 
     with sync_playwright() as p:
         context = p.chromium.launch_persistent_context(
-            user_data_dir=user_data_dir,
-            headless=headless,
-            timezone_id=_env("PLAYWRIGHT_TIMEZONE_ID", "Asia/Kolkata"),
-            args=["--disable-blink-features=AutomationControlled"],
+            **_playwright_persistent_kwargs(user_data_dir, headless)
         )
         try:
             _install_portal_route_blocking(context)
@@ -2228,10 +2262,7 @@ def scrape_portal_records_with_playwright(
 
     with sync_playwright() as p:
         context = p.chromium.launch_persistent_context(
-            user_data_dir=user_data_dir,
-            headless=headless,
-            timezone_id=_env("PLAYWRIGHT_TIMEZONE_ID", "Asia/Kolkata"),
-            args=["--disable-blink-features=AutomationControlled"],
+            **_playwright_persistent_kwargs(user_data_dir, headless)
         )
         try:
             _install_portal_route_blocking(context)
@@ -2709,10 +2740,7 @@ def run_range_scrape_job(job_id, date_from, date_to):
 
         with sync_playwright() as p:
             context = p.chromium.launch_persistent_context(
-                user_data_dir=user_data_dir,
-                headless=headless,
-                timezone_id=_env("PLAYWRIGHT_TIMEZONE_ID", "Asia/Kolkata"),
-                args=["--disable-blink-features=AutomationControlled"],
+                **_playwright_persistent_kwargs(user_data_dir, headless)
             )
             try:
                 _install_portal_route_blocking(context)

@@ -45,11 +45,11 @@ UA = (
 )
 
 
-def first_match(page, comma_separated: str):
+async def first_match(page, comma_separated: str):
     for sel in [s.strip() for s in (comma_separated or "").split(",") if s.strip()]:
         loc = page.locator(sel).first
         try:
-            if loc.count() > 0:
+            if await loc.count() > 0:
                 return sel, loc
         except Exception:
             continue
@@ -86,8 +86,8 @@ async def main() -> int:
         print("PRE_STATUS:", response.status if response else None)
         print("PRE_URL   :", page.url)
 
-        email_sel, email_loc = first_match(page, EMAIL_SEL)
-        pass_sel, pass_loc = first_match(page, PASS_SEL)
+        email_sel, email_loc = await first_match(page, EMAIL_SEL)
+        pass_sel, pass_loc = await first_match(page, PASS_SEL)
         if not email_loc or not pass_loc:
             print("NO_LOGIN_FORM_FOUND")
             await browser.close()
@@ -96,7 +96,7 @@ async def main() -> int:
         await email_loc.fill(USERNAME)
         await pass_loc.fill(PASSWORD)
 
-        submit_sel, submit_loc = first_match(page, SUBMIT_SEL)
+        submit_sel, submit_loc = await first_match(page, SUBMIT_SEL)
         print("SUBMIT_SELECTOR:", submit_sel)
 
         nav = asyncio.create_task(

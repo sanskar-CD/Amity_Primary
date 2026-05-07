@@ -1291,8 +1291,15 @@ def _portal_build_config() -> dict[str, object]:
         "headless": headless,
         "timeout_ms": timeout_ms,
         "post_login_wait_ms": post_login_wait_ms,
-        "email_sel": _env("SCRAPER_EMAIL_SELECTOR", 'input[type="email"],input[name="email"],input[name="Email"],#email'),
-        "pass_sel": _env("SCRAPER_PASSWORD_SELECTOR", 'input[type="password"],input[name="password"],#password'),
+        # Amity portal uses text field name=UserName (not type=email); defaults must match without a full .env.
+        "email_sel": _env(
+            "SCRAPER_EMAIL_SELECTOR",
+            'input[name="UserName"],#UserName,input[type="email"],input[name="email"],input[name="Email"],#email',
+        ),
+        "pass_sel": _env(
+            "SCRAPER_PASSWORD_SELECTOR",
+            'input[name="Password"],#Password,input[type="password"],input[name="password"],#password',
+        ),
         "submit_sel": _env(
             "SCRAPER_LOGIN_SUBMIT_SELECTOR",
             'button[type="submit"],input[type="submit"],button:has-text("Login"),button:has-text("Sign in")',

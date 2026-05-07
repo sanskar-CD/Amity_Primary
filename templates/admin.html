@@ -10,9 +10,12 @@
     <main class="container">
       <div class="topbar">
         <h1>Admin Dashboard</h1>
-        <form method="post" action="{{ url_for('logout') }}">
-          <button type="submit" class="ghost">Logout</button>
-        </form>
+        <div class="topbar-actions" style="display: flex; gap: 0.5rem; align-items: center">
+          <a href="{{ url_for('scraper_dashboard') }}" class="ghost" style="text-decoration: none">Portal scraper</a>
+          <form method="post" action="{{ url_for('logout') }}">
+            <button type="submit" class="ghost">Logout</button>
+          </form>
+        </div>
       </div>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
@@ -60,6 +63,7 @@
                 <th>Inserted</th>
                 <th>Updated</th>
                 <th>Failed</th>
+                <th>Progress</th>
                 <th>Error</th>
               </tr>
             </thead>
@@ -73,11 +77,12 @@
                   <td>{{ job.inserted_count }}</td>
                   <td>{{ job.updated_count }}</td>
                   <td>{{ job.failed_count }}</td>
+                  <td class="muted" style="max-width: 14rem; white-space: normal">{{ job["result_summary"] or "" }}</td>
                   <td>{{ job.error_message or '' }}</td>
                 </tr>
               {% else %}
                 <tr>
-                  <td colspan="8">No jobs yet.</td>
+                  <td colspan="9">No jobs yet.</td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -94,7 +99,7 @@
           if (!resp.ok) return;
           const jobs = await resp.json();
           if (!Array.isArray(jobs) || jobs.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="8">No jobs yet.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="9">No jobs yet.</td></tr>';
             return;
           }
           tableBody.innerHTML = jobs
@@ -108,6 +113,7 @@
                 <td>${job.inserted_count ?? 0}</td>
                 <td>${job.updated_count ?? 0}</td>
                 <td>${job.failed_count ?? 0}</td>
+                <td class="muted" style="max-width: 14rem; white-space: normal">${job.result_summary || ""}</td>
                 <td>${job.error_message || ""}</td>
               </tr>
             `
@@ -116,7 +122,8 @@
         } catch (_err) {}
       }
       document.getElementById("refresh-jobs")?.addEventListener("click", refreshJobs);
-      setInterval(refreshJobs, 10000);
+      refreshJobs();
+      setInterval(refreshJobs, 3500);
     </script>
   </body>
   </html>

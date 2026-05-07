@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Portal scraper (date range)</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <main class="container">
+      <div class="topbar">
+        <h1>Portal scraper</h1>
+        <div class="topbar-actions">
+          <a href="{{ url_for('dashboard') }}" class="ghost" style="text-decoration: none; display: inline-block; padding: 0.5rem 0.75rem">← Admin dashboard</a>
+          <form method="post" action="{{ url_for('logout') }}" style="display: inline">
+            <button type="submit" class="ghost">Logout</button>
+          </form>
+        </div>
+      </div>
+
+      <p class="muted">
+        Scrapes the Amity LMS date range into the same <code>leads</code> SQLite DB the caller uses (<code>source=portal_scraper</code>),
+        with pacing from <code>.env</code> (<code>SCRAPER_MIN_DELAY_SEC</code> / <code>SCRAPER_MAX_DELAY_SEC</code>). While a job is
+        <strong>Running</strong>, this page polls quickly so <strong>Rows scraped</strong> updates live. To watch the browser highlight
+        each row as it is read, set <code>SCRAPER_HEADLESS=false</code>; with a visible window, <code>SCRAPER_HIGHLIGHT_ROWS=auto</code> (default)
+        turns on row-by-row extraction with an orange outline on the current row. If the grid never loads data, try <code>SCRAPER_BLOCK_HEAVY_RESOURCES=false</code>.
+      </p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert {{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <div class="card">
+        <h2>Run range scrape</h2>
+        <form method="post" action="{{ url_for('scraper_start_range') }}" class="stack">
+          <label for="date_from">Start date (YYYY-MM-DD)</label>
+          <input id="date_from" name="date_from" type="date" required />
+          <label for="date_to">End date (YYYY-MM-DD)</label>
+          <input id="date_to" name="date_to" type="date" required />
+          <button type="submit">Start scrape</button>
+        </form>
+        <p class="muted" style="margin-top: 0.75rem">
+          Default maximum span: 31 days. Override with <code>SCRAPER_MAX_RANGE_DAYS</code> in <code>.env</code>.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="topbar">
+          <h2>Cron status <span id="cron-live-badge" class="muted" style="display: none; font-weight: normal; font-size: 0.85rem">· Live</span></h2>
+          <button type="button" id="refresh-cron" class="ghost">Refresh</button>
+        </div>
+        <p class="muted" style="margin-top: 0.25rem">
+          This shows the scheduled scraper (Task Scheduler). It resumes from the last row already scraped for the current LMS day.
+        </p>
+        <div class="jobs-wrap" style="margin-top: 0.75rem">
+          <table class="jobs-table" id="cron-table">
+            <thead>
+              <tr>
+                <th>Active date</th>
+                <th>Pages completed</th>
+                <th>Lock</th>
+                <th>Latest job</th>
+                <th>Status</th>
+                <th>Rows</th>
+                <th>Inserted</th>
+                <th>Updated</th>
+                <th>Failed</th>
+                <th>Summary</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set cron = cron_snapshot or {} %}
+              {% set cj = cron.get("latest_cron_job") or {} %}
+              {% set lock = cron.get("lock") or {} %}
+              {% set is_locked = lock.get("locked") %}
+              {% if is_locked %}
+                {% set lock_text = "Locked (pid " ~ (lock.get("pid") or "?") ~ ")" %}
+              {% else %}
+                {% set lock_text = "Idle" ~ (" (last pid " ~ lock.get("pid") ~ ")" if lock.get("pid") else "") %}
+              {% endif %}
+              <tr>
+                <td>{{ cron.get("active_date") or "" }}</td>
+                <td>{{ cron.get("pages_completed") or 0 }}</td>
+                <td class="muted" style="white-space: normal">{{ lock_text }}</td>
+                <td>{{ cj.get("id") or "" }}</td>
+                <td>{{ cj.get("status") or "" }}</td>
+                <td>{{ cj.get("total_fetched") or 0 }}</td>
+                <td>{{ cj.get("inserted_count") or 0 }}</td>
+                <td>{{ cj.get("updated_count") or 0 }}</td>
+                <td>{{ cj.get("failed_count") or 0 }}</td>
+                <td class="muted" style="max-width: 16rem; white-space: normal">{{ cj.get("result_summary") or "" }}</td>
+                <td style="max-width: 18rem; white-space: normal">{{ cj.get("error_message") or "" }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="topbar">
+          <h2>Range job status <span id="scraper-live-badge" class="muted" style="display: none; font-weight: normal; font-size: 0.85rem">· Live</span></h2>
+          <button type="button" id="refresh-range-jobs" class="ghost">Refresh</button>
+        </div>
+        <div class="jobs-wrap">
+          <table class="jobs-table" id="range-jobs-table">
+            <thead>
+              <tr>
+                <th>Job ID</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Status</th>
+                <th>Days</th>
+                <th>Current</th>
+                <th>Rows scraped</th>
+                <th>Inserted</th>
+                <th>Updated</th>
+                <th>Failed</th>
+                <th>Summary</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for job in jobs %}
+                <tr>
+                  <td>{{ job.id }}</td>
+                  <td>{{ job.date_from }}</td>
+                  <td>{{ job.date_to }}</td>
+                  <td>{{ job.status }}</td>
+                  <td>{{ job.days_done or 0 }} / {{ job.days_total or 0 }}</td>
+                  <td>{{ job.current_date or "" }}</td>
+                  <td>{{ job.total_fetched }}</td>
+                  <td>{{ job.inserted_count }}</td>
+                  <td>{{ job.updated_count }}</td>
+                  <td>{{ job.failed_count }}</td>
+                  <td class="muted" style="max-width: 14rem; white-space: normal">{{ job["result_summary"] or "" }}</td>
+                  <td style="max-width: 18rem; white-space: normal">{{ job.error_message or "" }}</td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="12">No range jobs yet.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+    <script>
+      const POLL_MS_ACTIVE = 650;
+      const POLL_MS_IDLE = 5000;
+      const POLL_MS_HIDDEN = 2200;
+
+      let pollTimer = null;
+      let cronPollTimer = null;
+
+      function scheduleNextPoll(ms) {
+        if (pollTimer) clearTimeout(pollTimer);
+        pollTimer = setTimeout(refreshRangeJobs, ms);
+      }
+
+      async function refreshRangeJobs() {
+        const tableBody = document.querySelector("#range-jobs-table tbody");
+        const badge = document.getElementById("scraper-live-badge");
+        if (!tableBody) return;
+        let nextMs = POLL_MS_IDLE;
+        try {
+          const resp = await fetch("{{ url_for('range_scrape_jobs_api') }}", {
+            credentials: "same-origin",
+            cache: "no-store",
+          });
+          if (!resp.ok) {
+            scheduleNextPoll(POLL_MS_IDLE);
+            return;
+          }
+          const jobs = await resp.json();
+          if (!Array.isArray(jobs) || jobs.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="12">No range jobs yet.</td></tr>';
+            if (badge) badge.style.display = "none";
+            scheduleNextPoll(POLL_MS_IDLE);
+            return;
+          }
+          const hasActive = jobs.some((j) => {
+            const s = String(j.status || "").toLowerCase();
+            return s === "running" || s === "pending";
+          });
+          if (badge) badge.style.display = hasActive ? "inline" : "none";
+
+          let base = hasActive ? POLL_MS_ACTIVE : POLL_MS_IDLE;
+          if (document.hidden && hasActive) base = Math.max(base, POLL_MS_HIDDEN);
+          nextMs = base;
+
+          tableBody.innerHTML = jobs
+            .map(
+              (job) => `
+              <tr>
+                <td>${job.id}</td>
+                <td>${job.date_from || ""}</td>
+                <td>${job.date_to || ""}</td>
+                <td>${job.status || ""}</td>
+                <td>${job.days_done ?? 0} / ${job.days_total ?? 0}</td>
+                <td>${job.current_date || ""}</td>
+                <td data-col="rows">${job.total_fetched ?? 0}</td>
+                <td>${job.inserted_count ?? 0}</td>
+                <td>${job.updated_count ?? 0}</td>
+                <td>${job.failed_count ?? 0}</td>
+                <td class="muted" style="max-width: 14rem; white-space: normal">${job.result_summary || ""}</td>
+                <td style="max-width: 18rem; white-space: normal">${job.error_message || ""}</td>
+              </tr>
+            `
+            )
+            .join("");
+        } catch (_err) {
+          nextMs = POLL_MS_IDLE;
+        }
+        scheduleNextPoll(nextMs);
+      }
+
+      document.getElementById("refresh-range-jobs")?.addEventListener("click", () => {
+        if (pollTimer) clearTimeout(pollTimer);
+        pollTimer = null;
+        refreshRangeJobs();
+      });
+      refreshRangeJobs();
+
+      function scheduleCronPoll(ms) {
+        if (cronPollTimer) clearTimeout(cronPollTimer);
+        cronPollTimer = setTimeout(refreshCronStatus, ms);
+      }
+
+      async function refreshCronStatus() {
+        const tbody = document.querySelector("#cron-table tbody");
+        const badge = document.getElementById("cron-live-badge");
+        if (!tbody) return;
+
+        let nextMs = POLL_MS_IDLE;
+        try {
+          const resp = await fetch("{{ url_for('scraper_cron_status_api') }}", {
+            credentials: "same-origin",
+            cache: "no-store",
+          });
+          if (!resp.ok) {
+            scheduleCronPoll(POLL_MS_IDLE);
+            return;
+          }
+          const ct = resp.headers.get("content-type") || "";
+          if (!ct.toLowerCase().includes("application/json")) {
+            const text = await resp.text();
+            const looksLikeLogin = text.toLowerCase().includes("login");
+            tbody.innerHTML = `<tr><td colspan="11" class="muted">${looksLikeLogin ? "Session expired. Please refresh and login again." : "Cron status unavailable (non-JSON response)."}<\/td><\/tr>`;
+            if (badge) badge.style.display = "none";
+            scheduleCronPoll(POLL_MS_IDLE);
+            return;
+          }
+          const data = await resp.json();
+          const job = data?.latest_cron_job || null;
+          const lock = data?.lock || {};
+          const isLocked = Boolean(lock?.locked);
+          const status = String(job?.status || "");
+          const statusLower = status.toLowerCase();
+          const isActive = isLocked || statusLower === "running" || statusLower === "pending";
+          if (badge) badge.style.display = isActive ? "inline" : "none";
+
+          let base = isActive ? POLL_MS_ACTIVE : POLL_MS_IDLE;
+          if (document.hidden && isActive) base = Math.max(base, POLL_MS_HIDDEN);
+          nextMs = base;
+
+          const lockText = isLocked
+            ? `Locked (pid ${lock?.pid ?? "?"})`
+            : `Idle${lock?.pid ? ` (last pid ${lock.pid})` : ""}`;
+
+          tbody.innerHTML = `
+            <tr>
+              <td>${data?.active_date || ""}</td>
+              <td>${data?.pages_completed ?? 0}</td>
+              <td class="muted" style="white-space: normal">${lockText}</td>
+              <td>${job?.id ?? ""}</td>
+              <td>${status}</td>
+              <td>${job?.total_fetched ?? 0}</td>
+              <td>${job?.inserted_count ?? 0}</td>
+              <td>${job?.updated_count ?? 0}</td>
+              <td>${job?.failed_count ?? 0}</td>
+              <td class="muted" style="max-width: 16rem; white-space: normal">${job?.result_summary || ""}</td>
+              <td style="max-width: 18rem; white-space: normal">${job?.error_message || ""}</td>
+            </tr>
+          `;
+        } catch (_err) {
+          nextMs = POLL_MS_IDLE;
+        }
+        scheduleCronPoll(nextMs);
+      }
+
+      document.getElementById("refresh-cron")?.addEventListener("click", () => {
+        if (cronPollTimer) clearTimeout(cronPollTimer);
+        cronPollTimer = null;
+        refreshCronStatus();
+      });
+      refreshCronStatus();
+    </script>
+  </body>
+</html>

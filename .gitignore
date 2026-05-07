@@ -6,8 +6,18 @@ __pycache__/
 
 # Local databases / data
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
+**/.scraper_cron.lock
+
+# Local runtime data (Playwright profile, debug screenshots, scrape logs)
+data/
+cron_scrape.log
+
+# Stray files
+Untitled
 
 # Flask / Python tooling
 .pytest_cache/
@@ -20,3 +30,11 @@ __pycache__/
 # OS files
 Thumbs.db
 Desktop.ini
+
+# FastAPI / Playwright / Node
+backend/.venv/
+backend/data/
+frontend/node_modules/
+frontend/dist/
+.env
+backend/.env
